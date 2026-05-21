@@ -216,6 +216,86 @@ h2, h3 {
     gap: 1rem;
 }
 
+/* Semester Input Section */
+.semester-section {
+    margin-bottom: 1.5rem;
+}
+
+.semester-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.semester-header label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.btn-add-sem {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    padding: 0.4rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-add-sem:hover {
+    background: rgba(168, 85, 247, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.3);
+}
+
+.semester-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.semester-row .sem-number {
+    width: 80px;
+    flex-shrink: 0;
+    text-align: center;
+}
+
+.semester-row .sem-gpa {
+    flex: 1;
+}
+
+.btn-remove-sem {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove-sem:hover {
+    background: rgba(239, 68, 68, 0.4);
+    transform: scale(1.1);
+}
+
 /* Navigation Tabs */
 .nav-container {
     display: flex;
