@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import mysql.connector
+from decimal import Decimal
 
 app = Flask(__name__)
 CORS(app)
@@ -12,16 +13,20 @@ db = mysql.connector.connect(
     database="studentdb"
 )
 
-from flask import request
-
 @app.route('/student', methods=['POST'])
 def add_student():
+    try:
+        db.ping(reconnect=True, attempts=3, delay=1)
+    except Exception as e:
+        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
+
+    cursor = db.cursor()
     try:
         data = request.json
         for key in data:
             if data[key] == "":
                 data[key] = None
-        cursor = db.cursor()
+        
         query = """
             INSERT INTO students (rollno, name, department, email, tenth_marks, twelfth_marks, current_cgpa, backlogs, placed, company_name)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -45,55 +50,74 @@ def add_student():
     except Exception as e:
         db.rollback()
         return jsonify({"error": str(e)}), 400
+    finally:
+        cursor.close()
 
 @app.route('/student/<identifier>', methods=['GET'])
 def get_student(identifier):
-    cursor = db.cursor(dictionary=True)
-    
-    query = "SELECT * FROM students WHERE rollno=%s OR name LIKE %s"
-    cursor.execute(query, (identifier, f"%{identifier}%"))
-    student = cursor.fetchone()
-    
-    if not student:
-        return jsonify({"error": "Student not found"}), 404
-        
-    rollno = student['rollno']
-        
-    sem_query = "SELECT semester, gpa FROM semester_marks WHERE rollno=%s ORDER BY semester"
-    cursor.execute(sem_query, (rollno,))
-    student['semesters'] = cursor.fetchall()
-    
-    from decimal import Decimal
-    for key, value in student.items():
-        if isinstance(value, Decimal):
-            student[key] = float(value)
-            
-    for sem in student['semesters']:
-        if isinstance(sem['gpa'], Decimal):
-            sem['gpa'] = float(sem['gpa'])
-    
-    return jsonify(student)
+    try:
+        db.ping(reconnect=True, attempts=3, delay=1)
+    except Exception as e:
+        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
 
-@app.route('/students', methods=['GET'])
-def get_all_students():
     cursor = db.cursor(dictionary=True)
-    
-    query = "SELECT rollno, name, email, department, current_cgpa, backlogs, placed FROM students ORDER BY CAST(rollno AS UNSIGNED) ASC"
-    cursor.execute(query)
-    students = cursor.fetchall()
-    
-    from decimal import Decimal
-    for student in students:
+    try:
+        query = "SELECT * FROM students WHERE rollno=%s OR name LIKE %s"
+        cursor.execute(query, (identifier, f"%{identifier}%"))
+        student = cursor.fetchone()
+        
+        if not student:
+            return jsonify({"error": "Student not found"}), 404
+            
+        rollno = student['rollno']
+            
+        sem_query = "SELECT semester, gpa FROM semester_marks WHERE rollno=%s ORDER BY semester"
+        cursor.execute(sem_query, (rollno,))
+        student['semesters'] = cursor.fetchall()
+        
         for key, value in student.items():
             if isinstance(value, Decimal):
                 student[key] = float(value)
                 
-    return jsonify(students)
+        for sem in student['semesters']:
+            if isinstance(sem['gpa'], Decimal):
+                sem['gpa'] = float(sem['gpa'])
+        
+        return jsonify(student)
+    finally:
+        cursor.close()
+
+@app.route('/students', methods=['GET'])
+def get_all_students():
+    try:
+        db.ping(reconnect=True, attempts=3, delay=1)
+    except Exception as e:
+        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        query = "SELECT rollno, name, email, department, current_cgpa, backlogs, placed FROM students ORDER BY CAST(rollno AS UNSIGNED) ASC"
+        cursor.execute(query)
+        students = cursor.fetchall()
+        
+        for student in students:
+            for key, value in student.items():
+                if isinstance(value, Decimal):
+                    student[key] = float(value)
+                    
+        return jsonify(students)
+    finally:
+        cursor.close()
 
 @app.route('/student/<identifier>', methods=['DELETE'])
 def delete_student(identifier):
     try:
-        cursor = db.cursor()
+        db.ping(reconnect=True, attempts=3, delay=1)
+    except Exception as e:
+        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
+
+    cursor = db.cursor()
+    try:
         query = "DELETE FROM students WHERE rollno = %s"
         cursor.execute(query, (identifier,))
         db.commit()
@@ -105,5 +129,8 @@ def delete_student(identifier):
     except Exception as e:
         db.rollback()
         return jsonify({"error": str(e)}), 400
+    finally:
+        cursor.close()
 
-app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
