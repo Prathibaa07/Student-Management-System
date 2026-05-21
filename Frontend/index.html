@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student ERP System</title>
+    <link rel="stylesheet" href="index.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    
+    <div style="width: 100%; max-width: 1200px; text-align: center; margin-bottom: 2rem;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; background: -webkit-linear-gradient(#fff, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Student Management System</h1>
+    </div>
+
+    <div class="nav-container">
+        <div class="nav-tab active" id="tab-manage" onclick="switchTab('manage')">Manage Students</div>
+        <div class="nav-tab" id="tab-database" onclick="switchTab('database')">Student Database</div>
+    </div>
+
+    <div id="view-manage" class="dashboard-container">
+        
+        <div class="glass-card">
+            <h2>Add / Update Student</h2>
+            <form id="studentForm" onsubmit="submitStudent(event)">
+                <div class="semesters-grid">
+                    <div class="form-group">
+                        <label>Roll Number</label>
+                        <input type="text" id="add-rollno" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="add-name" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email ID</label>
+                    <input type="email" id="add-email" class="form-control" placeholder="student@example.com">
+                </div>
+
+                <div class="semesters-grid">
+                    <div class="form-group">
+                        <label>Department</label>
+                        <input type="text" id="add-dept" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Current CGPA</label>
+                        <input type="number" step="0.01" id="add-cgpa" class="form-control" required>
+                    </div>
+                </div>
+                
+                <div class="semesters-grid">
+                    <div class="form-group">
+                        <label>10th Marks (%)</label>
+                        <input type="number" step="0.01" id="add-10th" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>12th Marks (%)</label>
+                        <input type="number" step="0.01" id="add-12th" class="form-control">
+                    </div>
+                </div>
+
+                <div class="semesters-grid">
+                    <div class="form-group">
+                        <label>Backlogs</label>
+                        <input type="number" id="add-backlogs" class="form-control" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Placement Status</label>
+                        <select id="add-placed" class="form-control">
+                            <option value="No">Not Placed</option>
+                            <option value="Yes">Placed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="submitBtn">Save Student Record</button>
+                <div id="form-msg" style="margin-top: 10px; font-size: 0.9rem; text-align: center;"></div>
+            </form>
+        </div>
+
+        <div>
+            <div class="search-section glass-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+                <input type="text" id="search-rollno" class="form-control" placeholder="Search by Roll Number or Name...">
+                <button onclick="searchStudent()" class="btn-primary">Search</button>
+            </div>
+
+            <div id="student-dashboard" class="glass-card hidden">
+                <div class="profile-header">
+                    <div class="avatar" id="profile-initial">S</div>
+                    <div class="profile-info">
+                        <h3 id="prof-name">Student Name</h3>
+                        <p id="prof-rolldept">Roll No • Department</p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-cgpa">--</div>
+                        <div class="stat-label">Current CGPA</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-10th">--%</div>
+                        <div class="stat-label">10th Grade</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-12th">--%</div>
+                        <div class="stat-label">12th Grade</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-backlogs" style="margin-bottom: 0.5rem;">--</div>
+                        <span id="badge-backlog" class="status-badge">Status</span>
+                    </div>
+                    <div class="stat-box" style="grid-column: span 2;">
+                        <div class="stat-value" id="stat-placed" style="margin-bottom: 0.5rem;">--</div>
+                        <span id="badge-placed" class="status-badge">Placement</span>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 1rem; margin-bottom: 1rem;">Academic Progression</h3>
+                <div class="chart-container">
+                    <canvas id="progressionChart"></canvas>
+                </div>
+            </div>
+            
+            <div id="not-found" class="glass-card hidden" style="text-align: center; padding: 3rem;">
+                <h3 style="color: var(--text-muted);">No student found matching that search.</h3>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-database" class="table-container hidden glass-card">
+        <h2>All Stored Students</h2>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Sorted by Roll Number in ascending order.</p>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Roll No</th>
+                    <th>Name</th>
+                    <th>Email ID</th>
+                    <th>Department</th>
+                    <th>CGPA</th>
+                    <th>Backlogs</th>
+                    <th>Placed</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="students-table-body">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let progChart = null;
+
+        function switchTab(tabId) {
+            
+            document.getElementById('tab-manage').classList.remove('active');
+            document.getElementById('tab-database').classList.remove('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            document.getElementById('view-manage').classList.add('hidden');
+            document.getElementById('view-database').classList.add('hidden');
+            document.getElementById('view-' + tabId).classList.remove('hidden');
+
+            if (tabId === 'database') {
+                loadDatabase();
+            }
+        }
+
+        async function loadDatabase() {
+            const tbody = document.getElementById('students-table-body');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
+            
+            try {
+                let response = await fetch("http://127.0.0.1:5000/students");
+                let data = await response.json();
+                
+                tbody.innerHTML = '';
+                if(data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No students found in the database.</td></tr>';
+                    return;
+                }
+
+                data.forEach(student => {
+                    let tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${student.rollno}</strong></td>
+                        <td>${student.name}</td>
+                        <td>${student.email || '-'}</td>
+                        <td>${student.department || '-'}</td>
+                        <td><span style="color: var(--primary); font-weight: 600;">${student.current_cgpa}</span></td>
+                        <td>${student.backlogs > 0 ? '<span class="status-badge status-danger">'+student.backlogs+'</span>' : '<span class="status-badge status-success">0</span>'}</td>
+                        <td>${student.placed === 'Yes' ? '<span class="status-badge status-success">Yes</span>' : '<span class="status-badge status-danger">No</span>'}</td>
+                        <td><button onclick="deleteStudent('${student.rollno}')" style="background: none; border: none; color: #ef4444; font-size: 1.1rem; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Delete Record">✖</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error(error);
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--danger);">Failed to load database.</td></tr>';
+            }
+        }
+
+        async function deleteStudent(rollno) {
+            if(!confirm(`Are you sure you want to permanently delete student ${rollno}?`)) return;
+            
+            try {
+                let response = await fetch(`http://127.0.0.1:5000/student/${encodeURIComponent(rollno)}`, {
+                    method: 'DELETE'
+                });
+                
+                if(response.ok) {
+                    loadDatabase(); 
+                    
+                    const currentProf = document.getElementById('prof-rolldept').innerText;
+                    if (currentProf.includes(rollno)) {
+                        document.getElementById('student-dashboard').classList.add('hidden');
+                    }
+                } else {
+                    alert("Failed to delete student.");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Server error. Could not delete.");
+            }
+        }
+
+        async function submitStudent(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const msg = document.getElementById('form-msg');
+            btn.innerText = "Saving...";
+            
+            const data = {
+                rollno: document.getElementById('add-rollno').value,
+                name: document.getElementById('add-name').value,
+                email: document.getElementById('add-email').value,
+                department: document.getElementById('add-dept').value,
+                current_cgpa: document.getElementById('add-cgpa').value,
+                tenth_marks: document.getElementById('add-10th').value,
+                twelfth_marks: document.getElementById('add-12th').value,
+                backlogs: document.getElementById('add-backlogs').value,
+                placed: document.getElementById('add-placed').value,
+                semesters: [
+                    {semester: 1, gpa: parseFloat(document.getElementById('add-cgpa').value) - 0.2},
+                    {semester: 2, gpa: parseFloat(document.getElementById('add-cgpa').value) + 0.1},
+                    {semester: 3, gpa: parseFloat(document.getElementById('add-cgpa').value)}
+                ]
+            };
+
+            try {
+                let res = await fetch("http://127.0.0.1:5000/student", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    msg.style.color = "var(--success)";
+                    msg.innerText = "Student record saved successfully!";
+                    document.getElementById('studentForm').reset();
+                    document.getElementById('search-rollno').value = data.rollno;
+                    searchStudent();
+                } else {
+                    const err = await res.json();
+                    msg.style.color = "var(--danger)";
+                    msg.innerText = err.error || "Failed to save.";
+                }
+            } catch (error) {
+                msg.style.color = "var(--danger)";
+                msg.innerText = "Server error. Is backend running?";
+            } finally {
+                btn.innerText = "Save Student Record";
+                setTimeout(() => msg.innerText = "", 3000);
+            }
+        }
+
+        async function searchStudent() {
+            let search = document.getElementById("search-rollno").value;
+            const dashboard = document.getElementById("student-dashboard");
+            const notFound = document.getElementById("not-found");
+            
+            if (!search) return;
+
+            try {
+                let response = await fetch("http://127.0.0.1:5000/student/" + encodeURIComponent(search));
+                
+                if (!response.ok) {
+                    dashboard.classList.add('hidden');
+                    notFound.classList.remove('hidden');
+                    return;
+                }
+
+                let data = await response.json();
+                
+                if (data.error) {
+                    dashboard.classList.add('hidden');
+                    notFound.classList.remove('hidden');
+                    return;
+                }
+
+                dashboard.classList.remove('hidden');
+                notFound.classList.add('hidden');
+
+                document.getElementById('profile-initial').innerText = data.name.charAt(0).toUpperCase();
+                document.getElementById('prof-name').innerText = data.name;
+                document.getElementById('prof-rolldept').innerText = `${data.rollno} • ${data.department || 'N/A'}`;
+                
+                document.getElementById('stat-cgpa').innerText = data.current_cgpa;
+                document.getElementById('stat-10th').innerText = data.tenth_marks ? data.tenth_marks + "%" : "N/A";
+                document.getElementById('stat-12th').innerText = data.twelfth_marks ? data.twelfth_marks + "%" : "N/A";
+                
+                const blCount = data.backlogs || 0;
+                document.getElementById('stat-backlogs').innerText = blCount;
+                const blBadge = document.getElementById('badge-backlog');
+                if (blCount > 0) {
+                    blBadge.innerText = "Active Backlogs";
+                    blBadge.className = "status-badge status-danger";
+                } else {
+                    blBadge.innerText = "All Clear";
+                    blBadge.className = "status-badge status-success";
+                }
+
+                const placed = data.placed === 'Yes';
+                document.getElementById('stat-placed').innerText = data.company_name || (placed ? "Placed" : "Not Placed");
+                const plBadge = document.getElementById('badge-placed');
+                if (placed) {
+                    plBadge.innerText = "Secured";
+                    plBadge.className = "status-badge status-success";
+                } else {
+                    plBadge.innerText = "Looking";
+                    plBadge.className = "status-badge status-danger";
+                }
+
+                updateChart(data);
+
+            } catch (error) {
+                console.error(error);
+                dashboard.classList.add('hidden');
+            }
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('progressionChart');
+
+            if (progChart) {
+                progChart.destroy();
+            }
+            
+            const labels = ['10th', '12th'];
+            const points = [
+                data.tenth_marks ? (data.tenth_marks / 10) : null, // Normalize to 10 point scale roughly
+                data.twelfth_marks ? (data.twelfth_marks / 10) : null
+            ];
+
+            if (data.semesters && data.semesters.length > 0) {
+                data.semesters.forEach(sem => {
+                    labels.push('Sem ' + sem.semester);
+                    points.push(sem.gpa);
+                });
+            } else {
+                labels.push('Current CGPA');
+                points.push(data.current_cgpa);
+            }
+
+            progChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Academic Performance (GPA/10)',
+                        data: points,
+                        borderColor: '#a855f7',
+                        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ec4899',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        fill: true,
+                        tension: 0.4 
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#f8fafc' } }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            min: 4,
+                            max: 10,
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
