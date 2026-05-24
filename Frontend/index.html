@@ -182,7 +182,7 @@
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Loading...</td></tr>';
             
             try {
-                let response = await fetch("http://127.0.0.1:5000/students");
+                let response = await fetch("http://localhost:5001/students");
                 let data = await response.json();
                 
                 tbody.innerHTML = '';
@@ -215,7 +215,7 @@
             if(!confirm(`Are you sure you want to permanently delete student ${rollno}?`)) return;
             
             try {
-                let response = await fetch(`http://127.0.0.1:5000/student/${encodeURIComponent(rollno)}`, {
+                let response = await fetch(`http://localhost:5001/student/${encodeURIComponent(rollno)}`, {
                     method: 'DELETE'
                 });
                 
@@ -288,7 +288,7 @@
             }
 
             try {
-                let res = await fetch("http://127.0.0.1:5000/student", {
+                let res = await fetch("http://localhost:5001/student", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify(data)
@@ -324,7 +324,7 @@
             if (!search) return;
 
             try {
-                let response = await fetch("http://127.0.0.1:5000/student/" + encodeURIComponent(search));
+                let response = await fetch("http://localhost:5001/student/" + encodeURIComponent(search));
                 
                 if (!response.ok) {
                     dashboard.classList.add('hidden');
