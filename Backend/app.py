@@ -1,136 +1,145 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import mysql.connector
-from decimal import Decimal
+import sqlite3
 
 app = Flask(__name__)
 CORS(app)
 
-db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="Prathi@07",
-    database="studentdb"
-)
+DB_PATH = 'studentdb.sqlite'
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    
+    # Enforce foreign key constraints
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Create tables
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS students (
+            rollno TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            department TEXT,
+            email TEXT,
+            tenth_marks REAL,
+            twelfth_marks REAL,
+            current_cgpa REAL NOT NULL,
+            backlogs INTEGER DEFAULT 0,
+            placed TEXT DEFAULT 'No',
+            company_name TEXT
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS semester_marks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rollno TEXT,
+            semester INTEGER,
+            gpa REAL,
+            FOREIGN KEY (rollno) REFERENCES students(rollno) ON DELETE CASCADE
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Initialize tables when the app starts
+init_db()
 
 @app.route('/student', methods=['POST'])
 def add_student():
+    data = request.json
+    for key in data:
+        if data[key] == "":
+            data[key] = None
+            
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        db.ping(reconnect=True, attempts=3, delay=1)
-    except Exception as e:
-        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
-
-    cursor = db.cursor()
-    try:
-        data = request.json
-        for key in data:
-            if data[key] == "":
-                data[key] = None
-        
+        # UPSERT syntax in SQLite
         query = """
             INSERT INTO students (rollno, name, department, email, tenth_marks, twelfth_marks, current_cgpa, backlogs, placed, company_name)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE 
-            name=VALUES(name), department=VALUES(department), email=VALUES(email), tenth_marks=VALUES(tenth_marks),
-            twelfth_marks=VALUES(twelfth_marks), current_cgpa=VALUES(current_cgpa), backlogs=VALUES(backlogs), 
-            placed=VALUES(placed), company_name=VALUES(company_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(rollno) DO UPDATE SET 
+            name=excluded.name, department=excluded.department, email=excluded.email, 
+            tenth_marks=excluded.tenth_marks, twelfth_marks=excluded.twelfth_marks, 
+            current_cgpa=excluded.current_cgpa, backlogs=excluded.backlogs, 
+            placed=excluded.placed, company_name=excluded.company_name
         """
         values = (data['rollno'], data['name'], data.get('department'), data.get('email'), data.get('tenth_marks'), 
                   data.get('twelfth_marks'), data['current_cgpa'], data.get('backlogs', 0), data.get('placed', 'No'), data.get('company_name'))
         cursor.execute(query, values)
         
         if 'semesters' in data:
-            cursor.execute("DELETE FROM semester_marks WHERE rollno=%s", (data['rollno'],))
-            sem_query = "INSERT INTO semester_marks (rollno, semester, gpa) VALUES (%s, %s, %s)"
+            cursor.execute("DELETE FROM semester_marks WHERE rollno=?", (data['rollno'],))
+            sem_query = "INSERT INTO semester_marks (rollno, semester, gpa) VALUES (?, ?, ?)"
             sem_values = [(data['rollno'], sem['semester'], sem['gpa']) for sem in data['semesters']]
             cursor.executemany(sem_query, sem_values)
             
-        db.commit()
+        conn.commit()
         return jsonify({"message": "Student data saved successfully!"}), 201
     except Exception as e:
-        db.rollback()
+        conn.rollback()
         return jsonify({"error": str(e)}), 400
     finally:
-        cursor.close()
+        conn.close()
 
 @app.route('/student/<identifier>', methods=['GET'])
 def get_student(identifier):
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        db.ping(reconnect=True, attempts=3, delay=1)
-    except Exception as e:
-        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
-
-    cursor = db.cursor(dictionary=True)
-    try:
-        query = "SELECT * FROM students WHERE rollno=%s OR name LIKE %s"
+        query = "SELECT * FROM students WHERE rollno=? OR name LIKE ?"
         cursor.execute(query, (identifier, f"%{identifier}%"))
         student = cursor.fetchone()
         
         if not student:
             return jsonify({"error": "Student not found"}), 404
             
-        rollno = student['rollno']
+        student_dict = dict(student)
+        rollno = student_dict['rollno']
             
-        sem_query = "SELECT semester, gpa FROM semester_marks WHERE rollno=%s ORDER BY semester"
+        sem_query = "SELECT semester, gpa FROM semester_marks WHERE rollno=? ORDER BY semester"
         cursor.execute(sem_query, (rollno,))
-        student['semesters'] = cursor.fetchall()
+        semesters = cursor.fetchall()
         
-        for key, value in student.items():
-            if isinstance(value, Decimal):
-                student[key] = float(value)
-                
-        for sem in student['semesters']:
-            if isinstance(sem['gpa'], Decimal):
-                sem['gpa'] = float(sem['gpa'])
-        
-        return jsonify(student)
+        student_dict['semesters'] = [dict(sem) for sem in semesters]
+        return jsonify(student_dict)
     finally:
-        cursor.close()
+        conn.close()
 
 @app.route('/students', methods=['GET'])
 def get_all_students():
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        db.ping(reconnect=True, attempts=3, delay=1)
-    except Exception as e:
-        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
-
-    cursor = db.cursor(dictionary=True)
-    try:
-        query = "SELECT rollno, name, email, department, current_cgpa, backlogs, placed FROM students ORDER BY CAST(rollno AS UNSIGNED) ASC"
+        # Cast to integer for sorting
+        query = "SELECT rollno, name, email, department, current_cgpa, backlogs, placed FROM students ORDER BY CAST(rollno AS INTEGER) ASC"
         cursor.execute(query)
         students = cursor.fetchall()
-        
-        for student in students:
-            for key, value in student.items():
-                if isinstance(value, Decimal):
-                    student[key] = float(value)
-                    
-        return jsonify(students)
+        return jsonify([dict(student) for student in students])
     finally:
-        cursor.close()
+        conn.close()
 
 @app.route('/student/<identifier>', methods=['DELETE'])
 def delete_student(identifier):
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        db.ping(reconnect=True, attempts=3, delay=1)
-    except Exception as e:
-        return jsonify({"error": f"Database connection failed: {str(e)}"}), 500
-
-    cursor = db.cursor()
-    try:
-        query = "DELETE FROM students WHERE rollno = %s"
-        cursor.execute(query, (identifier,))
-        db.commit()
+        cursor.execute("DELETE FROM students WHERE rollno = ?", (identifier,))
+        conn.commit()
         
         if cursor.rowcount == 0:
             return jsonify({"error": "Student not found"}), 404
             
         return jsonify({"message": "Student deleted successfully"}), 200
     except Exception as e:
-        db.rollback()
+        conn.rollback()
         return jsonify({"error": str(e)}), 400
     finally:
-        cursor.close()
+        conn.close()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
